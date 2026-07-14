@@ -1,0 +1,92 @@
+# ============================================================
+# the_math_of_tech — channel configuration
+# Single source of truth for branding, style, and formats.
+# Everything in styles/ and templates/ reads from this file.
+# ============================================================
+
+channel:
+  name: "the_math_of_tech"
+  handle: "@the_math_of_tech"
+  watermark_text: "the_math_of_tech"
+  watermark_opacity: 0.35
+  language:
+    visuals: "en"          # all on-screen text stays English
+    narration: "hinglish"  # voiceover script generated in Hinglish
+
+# House palette — pure black stage, grey wireframe, neon red/blue/white text.
+# Role names are stable (accent_blue = primary, etc.) so scene code never
+# changes with rebrands.
+colors:
+  background: "#000000"      # pure black
+  text: "#ffffff"            # white
+  accent_blue: "#00b7ff"     # primary — neon blue (vectors, highlights)
+  accent_yellow: "#ffffff"   # emphasis, results — white flash
+  accent_red: "#ff2b4a"      # attention, heat — neon red
+  accent_green: "#7fd4ff"    # success, targets — light neon blue
+  accent_purple: "#4d7cff"   # secondary structures — deep neon blue
+  grid: "#00b7ff"            # grey wireframe / hairlines
+  muted: "#9e9e9e"           # grey annotations
+
+fonts:
+  heading: "CM"       # falls back to serif if not installed
+  body: "'URW Gothic"
+  code: "JetBrains Mono"
+  hindi_fallback: "Noto Sans Devanagari"  # for any Devanagari on screen
+
+# Motion-graphic style toggles (brand-wide; per-scene override via the
+# scene block's `shimmer:` field)
+style:
+  equation_shimmer: true    # thin neon frame + slow traveling glint around
+                            # hero equations (clarity-first: appears after
+                            # the equation is written, never competes)
+
+# Scene background: procedural endless stage (graded sky + mountain
+# silhouettes + scrolling tile floor), or your own artwork per format.
+background:
+  mode: procedural          # "procedural" | "image"
+  image_youtube: ""         # e.g. assets/bg_youtube.png  (mode: image)
+  image_instagram: ""       # e.g. assets/bg_instagram.png
+
+# Output formats — every scene renders to BOTH
+formats:
+  youtube:
+    aspect: "16:9"
+    pixel_width: 1920
+    pixel_height: 1080
+    frame_rate: 20
+    target_duration_s: [480, 900]     # 8–15 min explainers
+  # instagram:
+  #   aspect: "9:16"
+  #   pixel_width: 1080
+  #   pixel_height: 1920
+  #   frame_rate: 30
+  #   target_duration_s: [45, 90]       # reels
+  #   safe_top_frac: 0.12               # keep clear of IG UI
+  #   safe_bottom_frac: 0.18
+
+render:
+  quality_preview: "l"     # manim -ql for drafts
+  quality_final: "h"       # manim -qh for uploads
+  output_dir: "renders"
+
+# Default tags / metadata injected into upload descriptions
+tags:
+  common: [mathematics, AI, machine learning, math animation, manim,
+           deep learning explained, "the_math_of_tech"]
+  youtube_extra: [3blue1brown style, math visualization, AI research explained,
+                  neural networks, paper explained]
+  instagram_extra: ["#mathreels", "#aiexplained", "#machinelearning",
+                    "#mathshorts", "#stemindia", "#jeemaths", "#gateexam"]
+
+# Branded intro/outro
+branding:
+  intro_text: "the_math_of_tech"
+  intro_tagline: "the maths behind the machines"
+  intro_duration_s: 2.5
+  outro_cta_youtube: "Like • Subscribe • Comment your questions"
+  outro_cta_instagram: "Follow @the_math_of_tech for daily math + AI"
+  # which branded segments render.py stitches into each cut.
+  # Reels cold-open by design: an intro before the hook kills retention.
+  segments:
+    youtube: [intro, outro]
+    instagram: [outro]

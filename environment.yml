@@ -1,0 +1,17 @@
+# conda env for the_math_of_tech pipeline (WSL-safe, nothing touches system python)
+# create:  conda env create -f environment.yml
+# update:  conda env update -f environment.yml --prune
+name: tmot
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - manim>=0.18          # pulls ffmpeg, cairo, pango — all inside the env
+  - pyyaml>=6.0
+  - numpy>=1.24
+  # LaTeX comes from SYSTEM TeX Live, NOT conda. The conda-forge texlive-core
+  # package is broken here (mktexfmt/fmtutil can't find mktexlsr.pl -> no
+  # latex.fmt is built) and, being first on PATH, shadows a working system TeX.
+  # See logs/LESSONS.md L-4. Install system TeX once (WSL, one-time):
+  #   sudo apt install texlive texlive-latex-extra texlive-fonts-extra dvisvgm
+  # Do NOT add texlive-core back here.

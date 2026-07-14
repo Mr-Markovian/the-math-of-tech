@@ -1,0 +1,42 @@
+# ============================================================
+# the_math_of_tech — ship the PIPELINE, never the content/data.
+# Tracked: pipeline/, templates/, styles/, config/, docs/, logs/,
+#          main.py, PROMPTS.md, tasks.md, CLAUDE.md, README.md,
+#          environment.yml, requirements.txt
+# ============================================================
+
+# --- personal content: papers, plans, blogs, annotated scripts ---
+content/
+# to publish a single demo project later, whitelist it explicitly:
+# !content/example/
+# !content/example/**
+
+# --- generated data: scenes.json, scene .py files, narration,
+#     per-scene renders, stitched mp4s ------------------------------
+build/
+
+# --- any stray manim media dirs / video-ish artifacts --------------
+media/
+**/renders/
+*.mp4
+*.mov
+*.gif
+
+# --- python -----------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# --- secrets / local env ------------------------------------------
+.env
+*.local.yaml
+
+# --- OS / editor noise --------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

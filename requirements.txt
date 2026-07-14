@@ -1,0 +1,5 @@
+manim>=0.18.0
+pyyaml>=6.0
+numpy>=1.24
+# ffmpeg must be installed on the system (manim needs it anyway)
+# LaTeX (MiKTeX on Windows / texlive-full on Linux) required for Tex rendering
