@@ -37,6 +37,19 @@ glyphs, not LaTeX, so math arrives mangled — reconstruct with extra care.
 **Do:** Apply PROMPTS.md **Step 2** exactly. Write `content/<name>/<name>.md` — same prose, with ```scene YAML blocks replacing/augmenting [VISUAL] markers. Both narration languages, 4–7 `reel: true` scenes, durations summing to 480–900s (YouTube) with reel subset 45–90s.
 **Done when:** `python pipeline/blog_to_scenes.py content/<name>/<name>.md` exits OK **and** `python pipeline/check_tex.py content/<name>/<name>.md` reports all strings compile (every tex copied from `equations.md`, per PROMPTS.md step 2 rules).
 
+## TASK storyboard — audit stills BEFORE any animation render
+**Input:** `content/<name>/<name>.md` (annotated)
+**Do:** `python main.py content/<name>/<name>.md --storyboard` — parse + tex
+check + generate + ONE composed PNG still per scene. Then OPEN
+`build/<name>/storyboard/index.html` (contact sheet: still + type/duration/
+reel/question/narration per scene) and audit: layout collisions, LaTeX
+correctness vs `equations.md`, color registry, question placement. Report
+findings scene-by-scene. Fix in the source .md, re-audit with
+`--only=<id>` (seconds per scene).
+**Done when:** every still is composition-clean and Roy has reviewed the
+contact sheet. This is the cheap audit between the annotate gate and the
+first real render — stills catch composition; only motion needs the render.
+
 ## TASK build — parse + generate + preview render
 **Input:** `content/<name>/<name>.md`
 **Do:**
@@ -53,7 +66,7 @@ Read stdout of each before running the next. On failure: log to LESSONS.md, fix 
 **Do:** `python pipeline/render.py build/<name>` (no --preview). Then report file paths, total durations, and the narration script location.
 
 ## TASK full — everything
-**Do:** TASK ingest → **plan (STOP for approval — go/no-go)** → blog (pause for approval) → annotate (pause for approval) → build. Three gates, earliest is cheapest: a flow fix at the plan gate costs minutes; the same fix after build costs a re-render.
+**Do:** TASK ingest → **plan (STOP for approval — go/no-go)** → blog (pause for approval) → annotate (pause for approval) → storyboard (pause: Roy audits the contact sheet) → build. Gates from cheapest to dearest: a flow fix at the plan gate costs minutes; a composition fix at the storyboard costs seconds per scene; the same fix after build costs a re-render.
 
 ## TASK retro — log maintenance
 **Do:** Review this session's errors/corrections. Append anything unlogged to `logs/LESSONS.md`; deduplicate/merge stale entries; update `logs/STATE.md`.

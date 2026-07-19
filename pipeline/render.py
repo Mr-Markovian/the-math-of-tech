@@ -14,6 +14,7 @@ Usage:
 every other scene's existing mp4 from build/<name>/renders/, then re-stitches
 both cuts. Requires one prior full render (the reused files must exist).
 """
+import hashlib
 import json
 import os
 import subprocess
@@ -21,6 +22,33 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# spec fields that do NOT affect the rendered pixels — excluded from the
+# staleness hash so e.g. a narration tweak doesn't invalidate reuse
+NON_VISUAL = ("narration_en", "narration_hi", "reel", "order", "duration")
+
+
+def spec_hash(s: dict) -> str:
+    spec = {k: v for k, v in s.items() if k not in NON_VISUAL}
+    return hashlib.sha1(
+        json.dumps(spec, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:12]
+
+
+def manifest_path(out_root: Path) -> Path:
+    return out_root / "manifest.json"
+
+
+def load_manifest(out_root: Path) -> dict:
+    try:
+        return json.loads(manifest_path(out_root).read_text(encoding="utf-8"))
+    except Exception:
+        return {"quality": None, "scenes": {}}
+
+
+def save_manifest(out_root: Path, man: dict):
+    manifest_path(out_root).write_text(
+        json.dumps(man, indent=2), encoding="utf-8")
 
 # which branded segments to stitch into each cut; overridable via
 # branding.segments in config/channel.yaml. Reels default to outro-only:
@@ -87,26 +115,57 @@ def scene_class_name(py_file: Path) -> str:
     raise ValueError(f"no class in {py_file}")
 
 
-def render(build_dir: Path, fmt: str, quality: str, reel_ids: set,
+def render(build_dir: Path, scenes: list, fmt: str, quality: str,
            only: set = None):
     scenes_dir = build_dir / "scenes"
     out_root = build_dir / "renders" / fmt
     out_root.mkdir(parents=True, exist_ok=True)
+    # staleness manifest: per-scene spec hash + quality, stamped at render
+    # time. --only reuse is refused when the stamp is missing/mismatched, so
+    # an outdated clip can never be silently stitched. A full render starts
+    # a fresh manifest (drops entries for removed scenes).
+    man = load_manifest(out_root) if only else {"quality": None, "scenes": {}}
+    if only and man.get("quality") and man["quality"] != quality:
+        raise SystemExit(
+            f"--only: existing {fmt} renders are -q{man['quality']} but this "
+            f"run is -q{quality} — reused and fresh clips would mismatch. "
+            f"Re-run a FULL render at the quality you want.")
     clips = []
-    for py in sorted(scenes_dir.glob("*.py")):
-        sid = py.stem.split("_", 1)[1]
-        if fmt == "instagram" and sid not in reel_ids:
+    # iterate scenes.json, NOT scenes/*.py — the dir may hold stale files
+    # from earlier annotate iterations, which must never be stitched (L-13)
+    for s in scenes:
+        sid = s["id"]
+        py = scenes_dir / f"{s['order']:02d}_{sid}.py"
+        if not py.exists():
+            raise SystemExit(
+                f"missing generated file {py.name} — re-run step 4; if ids "
+                f"changed, rm -rf {build_dir} first (L-6/L-13)")
+        if fmt == "instagram" and not s.get("reel"):
             continue
         cls = scene_class_name(py)
+        h = spec_hash(s)
         if only and sid not in only:
-            # selective mode: reuse this scene's existing render untouched
+            # selective mode: reuse this scene's existing render, but only
+            # if its scene block is unchanged since that clip was stamped
             c = newest(out_root, cls)
             if c is None:
                 raise SystemExit(
                     f"--only: no existing {fmt} render for scene '{sid}' "
                     f"(expected under {out_root}). Run one full render "
                     f"first, or add '{sid}' to --only.")
-            print(f"(reusing {sid}: {c.name})")
+            rec = man["scenes"].get(sid)
+            if rec is None:
+                raise SystemExit(
+                    f"--only: '{sid}' has no manifest stamp (renders predate "
+                    f"the staleness manifest, or the id is new) — its reused "
+                    f"clip can't be trusted. Run one full render to stamp "
+                    f"everything, or add '{sid}' to --only.")
+            if rec.get("hash") != h:
+                raise SystemExit(
+                    f"--only: scene '{sid}' CHANGED since its last {fmt} "
+                    f"render — reusing its clip would stitch a stale visual. "
+                    f"Add '{sid}' to --only (or run a full render).")
+            print(f"(reusing {sid}: {c.name} [stamp ok])")
             clips.append(c)
             continue
         env = {**os.environ, "TMOT_FORMAT": fmt}
@@ -117,6 +176,9 @@ def render(build_dir: Path, fmt: str, quality: str, reel_ids: set,
         c = newest(out_root, cls)
         if c:
             clips.append(c)
+        man["scenes"][sid] = {"hash": h}
+        man["quality"] = quality
+        save_manifest(out_root, man)
 
     # branded intro/outro (fixes: defined in base_scene but never rendered);
     # in selective mode they are reused, not re-rendered
@@ -163,7 +225,6 @@ def main():
                     if s.strip()}
             args.discard(a)
     project = json.loads((build_dir / "scenes.json").read_text(encoding="utf-8"))
-    reel_ids = {s["id"] for s in project["scenes"] if s.get("reel")}
     if only:
         known = {s["id"] for s in project["scenes"]}
         unknown = only - known
@@ -179,7 +240,7 @@ def main():
         if fmt not in fmts:
             print(f"({fmt} not configured in channel.yaml formats — skipping)")
             continue
-        clips = render(build_dir, fmt, quality, reel_ids, only)
+        clips = render(build_dir, project["scenes"], fmt, quality, only)
         stitch(clips, build_dir / f"{name}_{fmt}.mp4")
 
 

@@ -15,6 +15,10 @@ Claude Code ("run TASK full for <name>", see tasks.md). Once the annotated
         # build/<name>/renders/ and the final videos are re-stitched
     python main.py content/example/attention.md --skip-tex
         # skip the step-3.5 LaTeX pre-compile check (pipeline/check_tex.py)
+    python main.py content/example/attention.md --storyboard
+        # parse + tex check + generate, then ONE composed PNG still per scene
+        # (pipeline/storyboard.py) + an index.html audit sheet — eyeball every
+        # scene BEFORE a full animation render. Combines with --ig / --only=
 """
 import subprocess
 import sys
@@ -46,6 +50,16 @@ def main():
     if "--skip-tex" not in flags:
         run([py, "pipeline/check_tex.py", str(build / "scenes.json")])
     run([py, "pipeline/generate_scripts.py", str(build / "scenes.json")])
+
+    if "--storyboard" in flags:
+        sb = [py, "pipeline/storyboard.py", str(build)]
+        for f in flags:
+            if f == "--ig" or f.startswith("--only="):
+                sb.append(f)
+        run(sb)
+        print(f"\nDone (storyboard, no animation render). "
+              f"Audit view: {build/'storyboard'/'index.html'}")
+        return
 
     if "--no-render" in flags:
         print(f"\nDone (no render). Scenes: {build/'scenes'} | "

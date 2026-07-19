@@ -52,6 +52,10 @@ environment.yml --prune` — never bare `pip install` outside the env.
 3.5 TexChk  python pipeline/check_tex.py build/<name>/scenes.json
             (compiles every tex: in isolation — main.py runs it automatically)
 4. Generate python pipeline/generate_scripts.py build/<name>/scenes.json
+4.5 Audit   python pipeline/storyboard.py build/<name>   [--only=<ids>]
+            (one composed PNG still per scene + index.html contact sheet —
+            audit composition BEFORE any animation render; via main.py:
+            --storyboard. Stills catch layout/LaTeX/colors, not motion.)
 5. Render   python pipeline/render.py build/<name> --preview
 ```
 

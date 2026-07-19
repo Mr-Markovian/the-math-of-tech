@@ -26,6 +26,10 @@ content/<name>/blog.md         ← your blog post, publishable as-is
         │  TASK annotate (PROMPTS.md step 2 — ```scene blocks, EN+HI narration;
         │                 check_tex.py must pass before the gate)
 content/<name>/<name>.md       ← blog + script + animation spec in one file
+        │  TASK storyboard (main.py --storyboard: one PNG still per scene +
+        │                   index.html contact sheet — audit composition
+        │                   BEFORE paying for an animation render)
+build/<name>/storyboard/       ← audit stills + index.html (Roy reviews here)
         │  TASK build   (scripts: parse → tex check → generate → preview render)
 build/<name>/                  ← scenes.json, scene .py files, narration.md,
                                  <name>_youtube.mp4, <name>_instagram.mp4
@@ -55,5 +59,9 @@ TASK full pauses three times, earliest is cheapest:
 2. after `blog.md` — editorial voice check (are the questions being
    ANSWERED, or are facts being told?).
 3. after `<name>.md` — scene choices, reel selection, Hinglish quality.
+4. after the storyboard — composition audit on actual rendered stills
+   (`build/<name>/storyboard/index.html`): collisions, LaTeX, colors,
+   question placement. Cheap to fix here (`--only=<id>` re-audits in
+   seconds); dear to fix after a full render.
 Everything downstream is deterministic scripts, so these reviews are where
 your judgment matters most.

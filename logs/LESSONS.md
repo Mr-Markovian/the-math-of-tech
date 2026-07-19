@@ -162,3 +162,41 @@ Entry format:
 - Rule: any capability defined in base_scene.py must have a caller in the
   generator or renderer, or it silently doesn't exist; grep for call sites
   when adding features.
+
+## L-13 | 2026-07-19 | other (storyboard / stale build files)
+- Symptom: first storyboard run on build/attention rendered 5 stills for a
+  3-id --only request, including THREE variance_growth copies at orders
+  05/06/07 — the scenes/ dir held ~60 .py files against 19 scenes in
+  scenes.json (stale files from earlier annotate iterations).
+- Cause: storyboard.py globbed build/<name>/scenes/*.py, the same trap as
+  L-6 (generate_scripts writes new files, never deletes removed ones);
+  render.py has the identical glob and WILL stitch stale scenes too.
+- Fix: storyboard.py AND render.py (same session, 2026-07-19) now iterate
+  scenes.json entries and derive each filename as <order:02d>_<id>.py; a
+  missing file is a hard error telling you to re-run step 4 / rm -rf the
+  build dir. Verified: render.py on a scenes.json with an empty scenes/
+  dir exits with the clear error instead of silently stitching nothing.
+- Rule: anything consuming build/<name>/scenes/ must iterate scenes.json,
+  never glob the directory. Stale scene .py files can no longer be
+  stitched. The stale-mp4 half is ALSO automated now (same day): render.py
+  stamps per-scene spec hash + quality into renders/<fmt>/manifest.json at
+  render time; --only reuse refuses a changed/unstamped scene or a quality
+  mismatch with a hard error (verified all three paths on a 2-scene test
+  project). rm -rf build/<name> after id changes remains good hygiene (L-6).
+
+## L-14 | 2026-07-19 | other (scene audit)
+- Symptom: no way to audit scene composition without a full animation
+  render — `manim -s` last-frame stills are EMPTY because tear_down()
+  recedes all content into depth before the final frame (L-9).
+- Cause: the auto-recede is the house exit animation; -s captures the frame
+  AFTER it.
+- Fix: TMOT_STORYBOARD=1 env var — tear_down() keeps content on stage and
+  adds the question: statically; pipeline/storyboard.py drives `manim -s`
+  per scenes.json scene and builds build/<name>/storyboard/ (PNGs +
+  index.html contact sheet). ~15s/scene at -qh. First run immediately
+  caught 2 real bugs (variance_growth dropped glyphs, text_to_vectors
+  question overlap) before any video existed.
+- Rule: audit stills via `python pipeline/storyboard.py build/<name>` (or
+  main.py --storyboard), never raw `manim -s`; audit the storyboard BEFORE
+  every first render of new/changed scenes — stills catch composition,
+  only motion needs the render.

@@ -2,6 +2,52 @@
 
 Format: one section per project.
 
+## infra / render staleness manifest (2026-07-19)
+- render.py now stamps every rendered clip into build/<name>/renders/<fmt>/
+  manifest.json: per-scene sha1 of the scene block's VISUAL fields
+  (narration_en/hi, reel, order, duration excluded — those don't change
+  pixels) + the run's quality mode. --only reuse checks the stamp: scene
+  changed since stamp → hard error naming the scene; no stamp (pre-manifest
+  renders / new id) → hard error; -ql vs -qh mismatch → hard error. Full
+  render starts a fresh manifest (drops removed scenes' entries), stamps
+  incrementally after each scene (crash-safe).
+- TESTED end-to-end on a throwaway 2-scene project: full render stamps
+  both; editing one scene then --only on the OTHER correctly aborts
+  ("CHANGED since its last render"); reverting reuses with [stamp ok] and
+  restitches; quality mismatch aborts. Test dir deleted.
+- Consequence for build/attention: its old example renders have NO stamps,
+  so --only against them now fails safe instead of stitching stale clips.
+  First full render of the rebuild creates the manifest.
+
+## infra / storyboard audit (2026-07-19)
+- NEW `pipeline/storyboard.py` (step 4.5): one composed PNG still per scene
+  via `manim -s` + env TMOT_STORYBOARD=1. base_scene.tear_down() now checks
+  that env var: keeps content ON stage and adds `question:` statically
+  (without it, the recede leaves -s frames empty — the L-9 problem, now
+  solved for audit purposes). Output build/<name>/storyboard/NN_id.png +
+  index.html contact sheet (still + type/duration/reel/question/EN+HI
+  narration per scene). Flags: --ig (9:16), --only=<ids>. main.py
+  --storyboard = parse → texcheck → generate → stills. Iterates
+  scenes.json, NOT scenes/*.py glob (stale files must not be audited —
+  found the hard way, see next bullet). Registered in README (Workflow B
+  section + QC table rows split composition/motion), CLAUDE.md pipeline,
+  tasks.md (new TASK storyboard; TASK full now has a 4th storyboard pause),
+  AGENT_WORKFLOW, CONFIGURATION fix-one-scene loop.
+- TESTED: full 19-scene storyboard of the attention rebuild rendered clean
+  (~15s/scene at -qh). Stills verified composed (title, content, question,
+  wave bg, watermark) — e.g. the_equation shows shimmer frame + callout
+  arrow + registry colors correctly.
+- AUDIT FINDINGS on attention rebuild (from the stills — fix in .md before
+  step 5): (a) `variance_growth` (equation_steps): final morphed state has
+  DROPPED GLYPHS — "std(q·k ... d_k d_k" missing \sqrt/parens/= — the L-5
+  substrings_to_isolate breakage predicted in the archetype's watch-list;
+  fix likely = trim color_map/isolate substrings. (b) `text_to_vectors`:
+  question: text overlaps the matrix bottom rows (tall content + to_edge
+  DOWN question) — would ALSO show in the real render; shrink matrix or
+  drop question lower. (c) build/attention/scenes/ holds ~60 .py files vs
+  19 current scenes (stale iterations incl. 3 variance_growth copies) —
+  `rm -rf build/attention` REQUIRED before the real render (L-6).
+
 ## infra / math fidelity (2026-07-19)
 - Problem addressed: markitdown on PDFs mangles math (glyphs, not LaTeX);
   bad tex previously failed at step 5 (most expensive place). Four fixes:
@@ -75,11 +121,21 @@ Format: one section per project.
   beat sheet + color registry + carry_in/carry_out on every scene; new depth
   scenes: variance derivation (Var(q·k)=d_k), shapes/projections, multi-head
   dims, complexity O(n²d) vs O(n d²), positional encodings.
-- Last completed step: 2 (annotate). Next action: steps 3–5 —
-  `conda activate tmot && python main.py content/attention/attention.md`
-  (Cowork session 2026-07-13 could not run these: sandbox couldn't mount the
-  WSL folder). NOTE: this build dir name collides with the old example
-  (build/attention) and will overwrite it — intended.
+- Last completed step: 4.5 (storyboard audit, 2026-07-19) — parse (19
+  scenes ~495s, 5 reel), tex check (25/25 compile), generate, and full
+  19-still storyboard all ran clean. Audit view:
+  build/attention/storyboard/index.html.
+- Next action, IN ORDER: (1) fix in content/attention/attention.md the two
+  storyboard findings — variance_growth equation_steps dropped glyphs
+  (L-5-style isolate breakage; trim color_map/isolate) and text_to_vectors
+  question-overlaps-matrix; (2) `rm -rf build/attention` — its scenes/ dir
+  holds ~60 stale .py vs 19 current (L-13; render.py is FIXED to ignore
+  them since 2026-07-19, but the dir also holds the OLD example's render
+  mp4s, which --only reuse could pick up — clean it anyway); (3) re-run
+  `python main.py content/attention/attention.md --storyboard` and
+  re-audit; (4) preview render (step 5).
+  NOTE: this build dir name collides with the old example (build/attention)
+  and overwrites it — intended.
 - Also this session: BrandedIntro/BrandedOutro now stitched by render.py per
   channel.yaml branding.segments (see LESSONS L-12) — first render of this
   project will be the first with intro/outro.

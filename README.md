@@ -20,11 +20,17 @@ P. Source → STORY PLAN         →  plan.md              (TASK plan — GO/NO-
                                   isolation; bad LaTeX fails in seconds here,
                                   not minutes into a render. Auto-run by main.py)
 4. Generate → scene .py files  (pipeline/generate_scripts.py)
+4.5 Storyboard (audit)         (pipeline/storyboard.py — one composed PNG
+                                  still per scene + index.html contact sheet;
+                                  eyeball every scene in seconds BEFORE the
+                                  full animation render)
 5. Render   → YT + IG videos   (pipeline/render.py)
 ```
 
 Outputs per project in `build/<name>/`: `scenes.json`, generated scene `.py`
-files, `narration.md` (timestamped EN + Hinglish voiceover script), and
+files, `narration.md` (timestamped EN + Hinglish voiceover script),
+`storyboard/` (audit stills `<order>_<id>.png` + `index.html` contact
+sheet; `_media/` inside it is manim cache — ignorable), and
 `<name>_youtube.mp4` + `<name>_instagram.mp4`.
 
 The .md file is simultaneously your **blog post**, **narration script**, and
@@ -96,6 +102,33 @@ python pipeline/render.py build/attention --preview
 `python pipeline/check_tex.py --tex "\\frac{QK^T}{\\sqrt{d_k}}"` — which is
 the one-command way to test a suspect equation in isolation.
 
+### Auditing scenes as stills (storyboard — before any animation render)
+
+```
+python main.py content/<name>/<name>.md --storyboard        # parse+texcheck+
+                                                            # generate+stills
+python pipeline/storyboard.py build/<name>                  # stills only
+python pipeline/storyboard.py build/<name> --ig             # 9:16 framing
+python pipeline/storyboard.py build/<name> --only=<id1,id2> # re-audit a few
+```
+
+Each scene renders ONE fully-composed PNG (`manim -s` last-frame with
+`TMOT_STORYBOARD=1`, which suppresses the depth-recede that normally leaves
+`-s` frames empty — L-9): title, content in its final state, `question:`,
+watermark, background. Seconds per scene, no video encoding. Output collects in
+`build/<name>/storyboard/`: one `<order>_<id>.png` per scene (sorted =
+video order; `_media/` is manim's cache, ignore it) plus **`index.html`** —
+a contact sheet
+with each still alongside its type, duration, reel flag, question, and both
+narrations. Open that one file to audit the whole video instead of reading
+scene blocks in the .md.
+
+What a still can catch: layout collisions/overflow, wrong or broken LaTeX
+(dropped glyphs), color-registry violations, weak visual density, a
+question that doesn't set up the next scene. What it can't: motion quality
+— morph readability still needs the preview render. Fix a scene in the
+source .md, then `--only=<id>` to re-audit in seconds.
+
 You can also write the scene-annotated .md entirely by hand (schema in
 `PROMPTS.md`) and never touch an LLM — Workflow B is the whole pipeline then.
 If something breaks, append what you learned to `logs/LESSONS.md` so agent
@@ -123,11 +156,18 @@ with `--final` (via main.py) for production quality.
 Notes:
 - `--only` needs one prior full render (it reuses those files; a missing
   reused scene aborts with a clear error).
-- Keep the SAME quality mode as the existing renders (all `--preview` or all
-  `--final`) so reused and fresh clips match.
-- If you add/remove/rename scenes (ids change), do a full re-render after
-  `rm -rf build/<name>` — stale scene files would otherwise get stitched in
-  (see LESSONS L-6).
+- Staleness is checked AUTOMATICALLY: every rendered clip is stamped into
+  `build/<name>/renders/<fmt>/manifest.json` with a hash of its scene
+  block's visual fields (narration/duration edits don't invalidate reuse)
+  plus the quality mode. `--only` refuses to reuse a clip whose scene block
+  changed, whose stamp is missing (pre-manifest renders), or when the
+  quality mode differs (`--preview` vs `--final`) — each with a message
+  saying what to do. A full render re-stamps everything from scratch.
+- If you add/remove/rename scenes (ids change), do a full re-render
+  (`rm -rf build/<name>` first for hygiene) — stale scene .py files are
+  ignored (render/storyboard iterate scenes.json, not the dir), and the
+  manifest guard turns what used to be silent stale stitching into a hard
+  error (LESSONS L-6/L-13).
 - Under the hood manim also caches unchanged animations, so even a full
   re-render is cheaper than it looks — `--only` just skips the per-scene
   manim startup entirely.
@@ -177,7 +217,8 @@ styles/tmot_style.py     # loads config, exposes colors + helpers
 templates/base_scene.py  # TMOTScene: watermark, intro/outro, YT/IG layout
 templates/scene_library.py  # scene archetypes (16; status in "Scene database" below)
 pipeline/                # ingest.py (step 00 fetch), blog_to_scenes (3),
-                         # check_tex (3.5), generate_scripts (4), render (5)
+                         # check_tex (3.5), generate_scripts (4),
+                         # storyboard.py (4.5 audit stills), render (5)
 main.py                  # one-command runner for steps 3–5 (Workflow B)
 skills/visual-storytelling/  # SKILL.md — Question Ladder, Story Plan gate,
                          # Continuity Law (governs all writing in steps P–2)
@@ -404,7 +445,8 @@ Your key-questions step is now a first-class pipeline stage — **TASK plan**:
 | Storytelling voice | `blog.md` vs the spine | rewrite at the blog gate — are questions answered, or facts told? |
 | Direction     | `question:` chain + carry_in/carry_out in `<name>.md` vs plan's scene map | edit scene blocks; re-run parse to validate |
 | Style         | `config/channel.yaml` (palette roles, fonts, background, shimmer) | one edit reskins every video |
-| Scene quality | preview render frames     | edit that block, `python main.py … --only=<id>` (~30s/scene) |
+| Scene composition | `build/<name>/storyboard/index.html` (stills + narration contact sheet) | edit that block, `python pipeline/storyboard.py build/<name> --only=<id>` (seconds/scene) — audit BEFORE any animation render |
+| Scene motion  | preview render frames     | edit that block, `python main.py … --only=<id>` (~30s/scene) |
 | Recurring problems | `logs/LESSONS.md`    | log it once, never repeat it |
 
 The economics: fixing the flow costs minutes at the plan gate, the voice an

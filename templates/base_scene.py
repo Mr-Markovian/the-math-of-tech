@@ -135,12 +135,22 @@ class TMOTScene(ThreeDScene):
         (visual-storytelling skill: questions are content, not narration
         garnish)."""
         q = (getattr(self, "spec", None) or {}).get("question")
+        storyboard = bool(os.environ.get("TMOT_STORYBOARD"))
         if q:
             qt = S.body(str(q), font_size=30, color=S.YELLOW)
             self.fit(qt, margin=0.85)
             qt.to_edge(DOWN, buff=1.8 if self.is_reel else 0.9)
-            self.play(FadeIn(qt, shift=UP * 0.4), run_time=0.7)
-            self.wait(1.3)
+            if storyboard:
+                self.add(qt)
+            else:
+                self.play(FadeIn(qt, shift=UP * 0.4), run_time=0.7)
+                self.wait(1.3)
+        if storyboard:
+            # TMOT_STORYBOARD=1 (pipeline/storyboard.py): keep everything ON
+            # stage so `manim -s` captures a fully composed audit still —
+            # the normal recede is why -s frames are empty (LESSONS L-9).
+            super().tear_down()
+            return
         try:
             self.stop_ambient_camera_rotation(about="phi")
         except Exception:

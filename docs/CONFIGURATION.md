@@ -132,17 +132,21 @@ literal colors (today: neon blue / white / neon red / light blue / deep blue
 ```
 1. edit the scene block(s) in content/<name>/<name>.md
 2. python pipeline/blog_to_scenes.py content/<name>/<name>.md   # validate YAML
-3. python main.py content/<name>/<name>.md --only=<id1,id2>     # ~30s/scene
+3. python pipeline/storyboard.py build/<name> --only=<id1,id2>  # seconds/scene:
+   composed still per scene — check layout/LaTeX/colors BEFORE animating
+4. python main.py content/<name>/<name>.md --only=<id1,id2>     # ~30s/scene
    (main.py auto-runs pipeline/check_tex.py first — bad LaTeX fails in
     seconds here, before any manim startup; --skip-tex to bypass)
-4. check the re-stitched mp4s in build/<name>/
+5. check the re-stitched mp4s in build/<name>/
 ```
 
 `--only` re-renders just those ids, reuses every other clip and the branding
-segments, and re-stitches both cuts. Caveats: needs one prior full render;
-keep the same quality mode; if ids were added/removed/renamed do
-`rm -rf build/<name>` + full render (L-6). Full details in README →
-"Reworking only specific scenes".
+segments, and re-stitches both cuts. Reuse is manifest-guarded (renders/
+<fmt>/manifest.json): a reused scene whose block changed since its stamp,
+a missing stamp, or a quality-mode mismatch each abort with a clear message
+instead of stitching a stale clip. Caveats: needs one prior full render; if
+ids were added/removed/renamed do `rm -rf build/<name>` + full render
+(L-6/L-13). Full details in README → "Reworking only specific scenes".
 
 ## 6. channel.yaml — every brand/config knob
 
