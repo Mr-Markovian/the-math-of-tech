@@ -40,6 +40,7 @@ CLASS_MAP = {
     "softmax_build": "SoftmaxBuild",
     "multi_head": "MultiHead",
     "table": "TableReveal",
+    "split_relate": "SplitRelate",
     "bullet_points": "BulletPoints",
 }
 

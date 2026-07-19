@@ -42,10 +42,15 @@ environment.yml --prune` — never bare `pip install` outside the env.
 ## Pipeline (5 steps, per project)
 
 ```
-0. Ingest   content/inbox/<name>.md (markitdown output of a paper/PDF/page)
+00. Fetch   python pipeline/ingest.py <arxiv-id|url> --name <name>
+            (math-faithful .md into content/inbox/ — prefer this over
+            markitdown for arXiv papers and math blogs; PDF = last resort)
+0. Ingest   content/inbox/<name>.md → source.md + equations.md (registry)
 1. Blog     → content/<name>/blog.md            (LLM: PROMPTS.md step 1)
 2. Annotate → content/<name>/<name>.md          (LLM: PROMPTS.md step 2 — scene blocks)
 3. Parse    python pipeline/blog_to_scenes.py content/<name>/<name>.md
+3.5 TexChk  python pipeline/check_tex.py build/<name>/scenes.json
+            (compiles every tex: in isolation — main.py runs it automatically)
 4. Generate python pipeline/generate_scripts.py build/<name>/scenes.json
 5. Render   python pipeline/render.py build/<name> --preview
 ```
@@ -69,5 +74,9 @@ passes parsing but fails that checklist is not done.
   fix `templates/scene_library.py` or the source .md, then regenerate.
 - Branding/colors/tags: edit only `config/channel.yaml`.
 - Verify each script step succeeded (read stdout) before starting the next.
+- LaTeX in scene blocks is COPIED from `content/<name>/equations.md` (built
+  by TASK ingest, verified against the paper) — never re-typed from memory.
 - If a render fails on LaTeX, test the offending `tex:` string in isolation
-  first; log the pattern in LESSONS.md.
+  first — `python pipeline/check_tex.py --tex '<string>'` — and log the
+  pattern in LESSONS.md. (Step 3.5 should have caught it; if it didn't,
+  extend `latex_jobs()` in check_tex.py for that field.)

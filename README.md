@@ -6,11 +6,19 @@
 ## Pipeline
 
 ```
-0. Any source (markitdown .md) →  content/inbox/       (TASK ingest cleans it)
+00. Fetch (math-faithful)      →  content/inbox/<name>.md   (pipeline/ingest.py —
+                                  arXiv LaTeX source / blog HTML via pandoc;
+                                  markitdown on a PDF is the LAST resort)
+0. Inbox → clean source        →  source.md + equations.md  (TASK ingest —
+                                  equations.md = verified LaTeX registry)
 P. Source → STORY PLAN         →  plan.md              (TASK plan — GO/NO-GO GATE)
 1. Plan + source → blog        →  blog post .md        (LLM, PROMPTS.md step 1)
-2. Blog post   → scenes        →  scene-annotated .md  (LLM, PROMPTS.md step 2)
+2. Blog post   → scenes        →  scene-annotated .md  (LLM, PROMPTS.md step 2 —
+                                  tex COPIED from equations.md, never from memory)
 3. Parse    → scenes.json      (pipeline/blog_to_scenes.py)
+3.5 Tex check                  (pipeline/check_tex.py — every tex: compiled in
+                                  isolation; bad LaTeX fails in seconds here,
+                                  not minutes into a render. Auto-run by main.py)
 4. Generate → scene .py files  (pipeline/generate_scripts.py)
 5. Render   → YT + IG videos   (pipeline/render.py)
 ```
@@ -37,8 +45,9 @@ Use this when starting from a paper/PDF/webpage: steps 0–2 are writing work
 that needs an LLM. Details in `docs/AGENT_WORKFLOW.md`.
 
 ```
-markitdown paper.pdf > content/inbox/lora.md   # any source → raw .md
 conda activate tmot
+python pipeline/ingest.py <arxiv-id-or-url> --name lora   # math-faithful fetch
+#  (markitdown paper.pdf > content/inbox/lora.md — only if no LaTeX source)
 claude                                          # in this folder
 > run TASK full for lora
 ```
@@ -71,15 +80,21 @@ python main.py content/example/attention.md --final      # production quality
 python main.py content/example/attention.md --no-render  # parse + generate only
 python main.py content/example/attention.md --yt-only    # or --ig-only
 python main.py content/example/attention.md --only=softmax_row  # partial re-render (see below)
+python main.py content/example/attention.md --skip-tex   # skip the step-3.5 LaTeX check
 ```
 
-Or run the three steps individually (same thing main.py chains):
+Or run the four steps individually (same thing main.py chains):
 
 ```
 python pipeline/blog_to_scenes.py content/example/attention.md
+python pipeline/check_tex.py build/attention/scenes.json      # step 3.5
 python pipeline/generate_scripts.py build/attention/scenes.json
 python pipeline/render.py build/attention --preview
 ```
+
+`check_tex.py` also takes the .md directly, or a single string —
+`python pipeline/check_tex.py --tex "\\frac{QK^T}{\\sqrt{d_k}}"` — which is
+the one-command way to test a suspect equation in isolation.
 
 You can also write the scene-annotated .md entirely by hand (schema in
 `PROMPTS.md`) and never touch an LLM — Workflow B is the whole pipeline then.
@@ -127,11 +142,11 @@ conda activate tmot
 python -c "import manim; print(manim.__version__)"   # sanity check
 ```
 
-ffmpeg, cairo, pango, and LaTeX (texlive-core) all come from conda-forge
-inside the env. If a render fails with a missing LaTeX package
-(`standalone.cls` / `preview.sty` are the usual ones), either add it via
-`tlmgr install standalone preview` or do the one-time system fallback:
-`sudo apt install texlive texlive-latex-extra dvisvgm`.
+ffmpeg, cairo, pango, and pandoc (used by `pipeline/ingest.py`) all come
+from conda-forge inside the env. LaTeX comes from SYSTEM TeX Live, NOT
+conda — the conda-forge texlive-core is broken and must stay out of the
+env (see `logs/LESSONS.md` L-4). One-time system install:
+`sudo apt install texlive texlive-latex-extra texlive-fonts-extra dvisvgm`.
 
 Fonts (user-level, no sudo): CMU Serif/Sans (cm-unicode) and Noto Sans
 Devanagari into `~/.local/share/fonts`, then `fc-cache -f`.
@@ -160,12 +175,14 @@ manim -ql build/attention/scenes/02_attention_equation.py S02AttentionEquation
 config/channel.yaml      # brand, palette, fonts, formats, tags — edit here first
 styles/tmot_style.py     # loads config, exposes colors + helpers
 templates/base_scene.py  # TMOTScene: watermark, intro/outro, YT/IG layout
-templates/scene_library.py  # scene archetypes (13+; add your own here)
-pipeline/                # steps 3–5 (scripts)
+templates/scene_library.py  # scene archetypes (16; status in "Scene database" below)
+pipeline/                # ingest.py (step 00 fetch), blog_to_scenes (3),
+                         # check_tex (3.5), generate_scripts (4), render (5)
 main.py                  # one-command runner for steps 3–5 (Workflow B)
 skills/visual-storytelling/  # SKILL.md — Question Ladder, Story Plan gate,
                          # Continuity Law (governs all writing in steps P–2)
-content/                 # inbox/ (raw markitdown) + per-project source/plan/blog/annotated .md  [git-ignored]
+content/                 # inbox/ (fetched raw .md) + per-project source/
+                         # equations (registry)/plan/blog/annotated .md  [git-ignored]
 CLAUDE.md + tasks.md     # Claude Code instructions + runnable tasks (Workflow A)
 PROMPTS.md               # LLM prompts for steps 1–2
 logs/                    # LESSONS.md (failure→fix log) + STATE.md (per-project checkpoint)
@@ -173,6 +190,54 @@ docs/AGENT_WORKFLOW.md   # Workflow A in detail
 docs/CONFIGURATION.md    # what to edit for which change: .md vs templates vs
                          # channel.yaml, archetype catalog, new-archetype recipe
 ```
+
+## Scene database — what can be animated today
+
+Every `type:` in a scene block maps to a parametrized archetype class in
+`templates/scene_library.py` (spec fields per type: `docs/CONFIGURATION.md`
+§3). Status legend:
+
+- ✅ **proven** — rendered in a full video, validated in both 16:9 and 9:16
+- 🧪 **render-tested** — smoke-tested renders, not yet exercised across a
+  full video / both formats
+- ⚠️ **registered, untested** — wired into all three registries and usable
+  now, but no render yet: watch its first render closely
+- 🔭 **planned** — not implemented; added on demand when a video needs it
+  (rule: recurring visual pattern → archetype; one-off → hand-written .py
+  in `build/<name>/scenes/`)
+
+| `type:` | What it draws | Status |
+|---------|---------------|--------|
+| `concept_title` | title card + subtitle | ✅ proven |
+| `equation_reveal` | equations written line by line (+ shimmer frame) | ✅ proven |
+| `equation_annotated` | one equation, color-coded parts + callout arrow | ✅ proven |
+| `transform` | equation A morphs into B | ✅ proven |
+| `graph` | single function plot | ✅ proven |
+| `neural_net` | layered network + forward-pass pulse | ✅ proven |
+| `attention_matrix` | token×token heatmap, real weights + focus row | ✅ proven |
+| `matrix_multiply` | A×B=C with real numbers, row walk | ✅ proven |
+| `softmax_build` | bars: scores → exp → normalized | ✅ proven |
+| `multi_head` | h heads → concat → W^O | ✅ proven |
+| `bullet_points` | staged text points (use sparingly) | ✅ proven |
+| `table` | Tufte table, staged rows, cell highlight | 🧪 render-tested (YT only) |
+| `split_relate` | two panels (matrix/list/vectors/graph/tex) + animated correspondence links | 🧪 render-tested (YT, both panel configs) |
+| `equation_steps` | derivation chain, steps morph via TransformMatchingTex | ⚠️ registered, untested |
+| `tokens_to_vectors` | sentence → token chips → spin vectors → stacked matrix X | ⚠️ registered, untested |
+| `graph_morph` | functions morphing in sequence on persistent axes | ⚠️ registered, untested |
+| `sample_paths` | seeded random walks / GBM curves (quant) | 🔭 planned |
+| `histogram_vs_pdf` | samples → distribution bridge | 🔭 planned |
+| `vector_field` / `phase_portrait` | dynamics fields | 🔭 planned |
+| `wave_evolution` | updater-based wave dynamics (physics) | 🔭 planned |
+
+Not scene types, but part of every video: `BrandedIntro` / `BrandedOutro`
+are stitched in automatically per `channel.yaml` `branding.segments`, and
+the universal `question:` field works on ANY scene (⚠️ untested — rendered
+in yellow at scene end to set up the next scene).
+
+The three ⚠️ archetypes and `question:` all debut in the attention
+rebuild's first render (steps 3–5 pending) — see `logs/STATE.md` for their
+per-archetype watch-lists before running it. Note the IG cut is currently
+skipped: the `instagram` format is commented out in `channel.yaml`.
 
 ## Extending
 
@@ -231,21 +296,39 @@ ed-techs rather than AdSense alone.
 
 ### Q1. How do I create the very first markdown file?
 
-You never write it by hand — you convert whatever you have:
+You never write it by hand — you fetch it. For arXiv papers and math blogs,
+use the fetch script (it grabs the ACTUAL LaTeX, so math survives verbatim):
+
+```
+conda activate tmot
+python pipeline/ingest.py 1706.03762 --name attention        # arXiv id
+python pipeline/ingest.py https://arxiv.org/abs/1706.03762 --name attention
+python pipeline/ingest.py https://someblog.com/post --name lora   # math blog
+```
+
+Fallback order inside the script: arXiv e-print LaTeX source → pandoc
+(gold path — the author's own TeX), then ar5iv HTML → pandoc (TeX embedded
+in MathML), then it tells you to markitdown the PDF. Only reach for
+markitdown directly when there is no LaTeX-native source (scanned or
+non-arXiv PDFs):
 
 ```
 conda activate markitdown         # or any env with markitdown
-markitdown paper.pdf   > content/inbox/<name>.md    # a downloaded paper
-markitdown https://arxiv.org/abs/1706.03762 > content/inbox/<name>.md
+markitdown paper.pdf > content/inbox/<name>.md   # math WILL be degraded
 ```
 
-That inbox file is deliberately allowed to be messy (broken tables, page
-artifacts, reference junk). **TASK ingest** (`run TASK ingest for <name>` in
-Claude Code) cleans it into `content/<name>/source.md`: navigation junk and
-references stripped, mangled LaTeX repaired, plus a header block (title,
-authors, year, link, one-line summary). Facts should be verified against the
-actual paper at this step — source.md is your ground truth for everything
-downstream.
+Why this matters: a PDF stores positioned glyphs, not LaTeX — markitdown
+flattens $\sqrt{d_k}$ into unicode soup and silently drops display
+equations, and everything downstream then reconstructs math from memory.
+
+The inbox file is still allowed to be messy (broken tables, page artifacts,
+reference junk). **TASK ingest** (`run TASK ingest for <name>` in Claude
+Code) cleans it into `content/<name>/source.md` — AND builds
+`content/<name>/equations.md`, the **equation registry**: every key
+equation, numbered, in LaTeX verified against the paper. Scene blocks later
+COPY from this registry rather than re-deriving LaTeX, so a wrong subscript
+can't silently reach the screen. source.md + equations.md are your ground
+truth for everything downstream.
 
 ### Q2. Which skills turn it into the form the pipeline works with?
 
@@ -269,7 +352,9 @@ all governed by `skills/visual-storytelling/SKILL.md`:
    EN + Hinglish narration, durations, `reel:` flags), with each scene's
    `question:` field carrying the next spine question ON SCREEN.
    Output: `content/<name>/<name>.md` — the final file: blog, narration
-   script, and animation plan in ONE artifact.
+   script, and animation plan in ONE artifact. Every equation is COPIED
+   from `equations.md` and must pass
+   `python pipeline/check_tex.py content/<name>/<name>.md` before the gate.
 
 The skill's other laws still govern all writing: **nothing appears suddenly**
 (carry_in/carry_out handoffs), **derive, don't declare** (every formula
@@ -315,6 +400,7 @@ Your key-questions step is now a first-class pipeline stage — **TASK plan**:
 |---------------|---------------------------|-------------------|
 | Flow / conceptual progression | `plan.md` (spine + flow test) | restructure the spine at the plan gate — the ONLY acceptable place; a failed flow test is a no-go, nothing downstream runs |
 | Facts         | `source.md` (vs the paper)| fix source.md, re-run plan/blog |
+| Math fidelity | `equations.md` (vs the paper) + `check_tex.py` output | fix the registry entry, re-copy into the scene block; compile errors are caught automatically at step 3.5, wrong-but-compiling math only the registry catches |
 | Storytelling voice | `blog.md` vs the spine | rewrite at the blog gate — are questions answered, or facts told? |
 | Direction     | `question:` chain + carry_in/carry_out in `<name>.md` vs plan's scene map | edit scene blocks; re-run parse to validate |
 | Style         | `config/channel.yaml` (palette roles, fonts, background, shimmer) | one edit reskins every video |

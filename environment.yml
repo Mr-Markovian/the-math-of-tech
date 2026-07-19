@@ -9,6 +9,7 @@ dependencies:
   - manim>=0.18          # pulls ffmpeg, cairo, pango — all inside the env
   - pyyaml>=6.0
   - numpy>=1.24
+  - pandoc               # pipeline/ingest.py: latex/html -> math-faithful md
   # LaTeX comes from SYSTEM TeX Live, NOT conda. The conda-forge texlive-core
   # package is broken here (mktexfmt/fmtutil can't find mktexlsr.pl -> no
   # latex.fmt is built) and, being first on PATH, shadows a working system TeX.

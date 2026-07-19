@@ -36,7 +36,7 @@ KNOWN_TYPES = {"concept_title", "equation_reveal", "equation_annotated",
                "equation_steps", "transform", "graph", "graph_morph",
                "tokens_to_vectors", "neural_net",
                "attention_matrix", "matrix_multiply", "softmax_build",
-               "multi_head", "table", "bullet_points"}
+               "multi_head", "table", "split_relate", "bullet_points"}
 
 
 def parse_blog(md_path: Path) -> dict:

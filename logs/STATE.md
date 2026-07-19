@@ -2,6 +2,60 @@
 
 Format: one section per project.
 
+## infra / math fidelity (2026-07-19)
+- Problem addressed: markitdown on PDFs mangles math (glyphs, not LaTeX);
+  bad tex previously failed at step 5 (most expensive place). Four fixes:
+- NEW `pipeline/ingest.py` (step 00 fetch): arXiv e-print LaTeX → pandoc →
+  gfm+tex_math_dollars .md (gold path); fallback ar5iv HTML → pandoc (TeX
+  from MathML annotations, has \hspace{0pt} noise — ingest strips it);
+  generic blog URLs supported; markitdown = documented last resort.
+  TESTED live on 1706.03762: e-print path ~110 math fragments verbatim
+  ($\sqrt{d_k}$, full attention eq); ar5iv path verified too. pandoc added
+  to environment.yml AND installed into tmot (pandoc 3.10).
+- NEW `pipeline/check_tex.py` (step 3.5): compiles every author-supplied
+  latex field via MathTex (exact render path, incl. substrings_to_isolate
+  for equation_steps). Field map in latex_jobs() MIRRORS scene_library —
+  update both when an archetype gains a latex field. Accepts scenes.json,
+  .md (parses first), or --tex "<string>" (the L-isolation test, now one
+  command). Cache in <build>/texcheck/. main.py auto-runs it after step 3
+  (--skip-tex to skip). TESTED: attention rebuild 25/25 strings compile;
+  broken string correctly fails with nonzero exit.
+- EQUATION REGISTRY: TASK ingest now also writes content/<name>/
+  equations.md (numbered, paper-verified LaTeX); PROMPTS.md step 2 +
+  CLAUDE.md hard rules: scene tex is COPIED from the registry, never
+  re-typed from memory. SKILL.md checklist item 17 added (registry
+  provenance + animation normalization: no \label/\tag/macros, no
+  \left\right in morphing scenes, byte-identical canonical symbol forms).
+- README: pipeline diagram gained steps 00 + 3.5, Q1 rewritten (fetch
+  first), QC table gained "Math fidelity" row, setup section FIXED (it
+  wrongly said LaTeX comes from conda — contradicted L-4).
+- attention rebuild note: parse+texcheck+generate ran clean end-to-end
+  (19 scenes, ~495s, 5 reel) — render (step 5) still the next action.
+
+## docs (2026-07-19)
+- README gained "Scene database — what can be animated today": all 16
+  registered archetypes with status (11 proven both formats, table +
+  split_relate render-tested, equation_steps / tokens_to_vectors /
+  graph_morph registered-untested, question: field untested) + the 4
+  planned roadmap archetypes (sample_paths, histogram_vs_pdf,
+  vector_field/phase_portrait, wave_evolution). Structure line count fixed
+  13+ → 16. docs/CONFIGURATION.md catalog was missing graph_morph and
+  tokens_to_vectors rows — added. Docs-only session, nothing rendered.
+
+## infra / archetypes (2026-07-14)
+- NEW ARCHETYPE `split_relate` (render-tested YT, both configs): two panels
+  (left/right on 16:9, auto-stacked top/bottom on reels) with animated
+  connector arrows drawing correspondences between addressable parts. Panel
+  kinds: matrix (addr row i or [i,j]), list (item i), vectors (arrow i on
+  small axes), graph (whole), tex (whole). links:[{from,to,color,label}] —
+  arrow L→R + Indicate pulse on both ends; left arrives, then right, then
+  links one at a time (Continuity Law). Registered in all 3 registries +
+  PROMPTS.md schema + docs/CONFIGURATION.md catalog + SKILL.md guidance.
+  Fixed pre-ship bug: `np.sign([x,y,0]) or UP` (ambiguous array truth) in
+  _mk_vectors → normalized direction. Verified: matrix↔list (row→token,
+  colored links) and vectors↔graph both render clean. NOTE captured frames
+  mid-recede look dim — sample ~60% into clip, not the last second (L-9).
+
 ## repo / infrastructure (2026-07-14)
 - Git repo initialized in manim-pipeline/. .gitignore ships the pipeline only:
   content/ and build/ (+ any renders/mp4s) are ignored; logs/ IS tracked

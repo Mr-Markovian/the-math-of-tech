@@ -2,8 +2,9 @@
 
 ## One-line usage
 
-Drop any .md (e.g. `markitdown paper.pdf > content/inbox/lora.md`), open
-Claude Code in this folder, and say:
+Fetch the source (`python pipeline/ingest.py 1706.03762 --name lora` — real
+LaTeX from arXiv/blogs; `markitdown paper.pdf > content/inbox/lora.md` only
+when no LaTeX-native source exists), open Claude Code in this folder, and say:
 
 > run TASK full for lora
 
@@ -13,16 +14,19 @@ for your approval after the blog draft and after scene annotation.
 ## The flow
 
 ```
-content/inbox/<name>.md        ← anything markitdown can produce (PDF, arXiv, blog URL)
+content/inbox/<name>.md        ← pipeline/ingest.py (arXiv LaTeX / blog HTML,
+                                 math verbatim); markitdown = last resort
         │  TASK ingest  (clean, fix LaTeX, keep the substance)
-content/<name>/source.md
+content/<name>/source.md       + equations.md (verified LaTeX registry —
+        │                        scene tex is COPIED from here, never re-typed)
         │  TASK plan    (Question Ladder → story plan; GO/NO-GO gate)
 content/<name>/plan.md         ← question spine + beat sheet + scene map
         │  TASK blog    (PROMPTS.md step 1 — answers to the spine, in order)
 content/<name>/blog.md         ← your blog post, publishable as-is
-        │  TASK annotate (PROMPTS.md step 2 — ```scene blocks, EN+HI narration)
+        │  TASK annotate (PROMPTS.md step 2 — ```scene blocks, EN+HI narration;
+        │                 check_tex.py must pass before the gate)
 content/<name>/<name>.md       ← blog + script + animation spec in one file
-        │  TASK build   (scripts: parse → generate → preview render)
+        │  TASK build   (scripts: parse → tex check → generate → preview render)
 build/<name>/                  ← scenes.json, scene .py files, narration.md,
                                  <name>_youtube.mp4, <name>_instagram.mp4
 ```

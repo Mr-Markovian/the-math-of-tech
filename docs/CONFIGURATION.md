@@ -89,12 +89,15 @@ new class + registration (section 4).
 | `equation_steps` | derivation chain, steps morph into each other | `steps` (list), `labels`, `anchor` (dimmed general form), `color_map` {tex: color}, `isolate` |
 | `transform` | equation A morphs to B | `tex_from`, `tex_to` |
 | `graph` | function plot | `function` (numpy expr in x), `x_range`, `y_range`, `label` |
+| `graph_morph` | functions morphing in sequence on persistent axes | `functions` (list of numpy exprs in x), `labels`, `captions`, `colors`, `x_range`, `y_range`, `fill` (bool) |
+| `tokens_to_vectors` | sentence → token chips → spin vectors → stacked matrix X | `text`, `max_toks`, `seed`, `decimals`, `show_matrix` |
 | `neural_net` | layered net + forward-pass pulse | `layers` (e.g. [3,5,2]) |
 | `attention_matrix` | token×token heatmap | `tokens`, `weights` (real, row-stochastic), `focus_row` |
 | `matrix_multiply` | A×B=C with real numbers, row walk | `a`, `b` (2D lists), `a_label`, `b_label`, `c_label`, `decimals`, `highlight_row` |
 | `softmax_build` | bars: scores → exp → normalized | `scores`, `labels`, `decimals` |
 | `multi_head` | h heads → concat → W^O | `n_heads` |
 | `table` | Tufte table, staged rows, cell highlight | `headers`, `rows`, `highlight` [r,c], `align` ('center'/'left') |
+| `split_relate` | two panels (L/R on 16:9, stacked on reels) with animated links referencing their parts | `left`, `right` (each `{kind: matrix\|list\|vectors\|graph\|tex, …}`), `left_label`, `right_label`, `links` [{from,to,color,label}] |
 | `bullet_points` | staged text points (use sparingly) | `points` |
 
 Color names accepted wherever a color is a parameter: `blue`, `yellow`,
@@ -108,7 +111,11 @@ literal colors (today: neon blue / white / neon red / light blue / deep blue
    parametrized ONLY via `self.spec` — no scene-specific constants.
 2. Register it in **three** places (all three, or step 3/4/5 rejects it):
    `SCENE_TYPES` (scene_library.py), `KNOWN_TYPES` (pipeline/blog_to_scenes.py),
-   `CLASS_MAP` (pipeline/generate_scripts.py).
+   `CLASS_MAP` (pipeline/generate_scripts.py). If any spec field carries
+   LaTeX, ALSO add it to `latex_jobs()` in `pipeline/check_tex.py` — that
+   map mirrors scene_library, and an unmapped field silently skips the
+   step-3.5 tex check. Document the type in PROMPTS.md's schema + the
+   catalog above.
 3. House rules inside `construct()`:
    - call `self.add_watermark()` first; `self.title_bar(...)` for headers
    - `self.fit(group)` + `S.ig_safe_shift(group, self.fmt)` on the main
@@ -124,8 +131,10 @@ literal colors (today: neon blue / white / neon red / light blue / deep blue
 
 ```
 1. edit the scene block(s) in content/<name>/<name>.md
-2. python pipeline/blog_to_scenes.py content/<name>/<name>.md   # validate
+2. python pipeline/blog_to_scenes.py content/<name>/<name>.md   # validate YAML
 3. python main.py content/<name>/<name>.md --only=<id1,id2>     # ~30s/scene
+   (main.py auto-runs pipeline/check_tex.py first — bad LaTeX fails in
+    seconds here, before any manim startup; --skip-tex to bypass)
 4. check the re-stitched mp4s in build/<name>/
 ```
 

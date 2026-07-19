@@ -9,13 +9,18 @@ first, or prefix with `conda run -n tmot` (see CLAUDE.md Environment).
 
 ---
 
-## TASK ingest — raw .md → clean source
-**Input:** `content/inbox/<name>.md` (typically markitdown output of a PDF/paper/webpage — messy: broken tables, figure captions, references).
+## TASK ingest — raw .md → clean source + equation registry
+**Input:** `content/inbox/<name>.md`. PREFER creating it with
+`python pipeline/ingest.py <arxiv-id-or-url> --name <name>` — it fetches the
+actual LaTeX (arXiv e-print source, or TeX embedded in blog/ar5iv HTML) so
+math survives verbatim. markitdown on a PDF is the LAST resort: a PDF stores
+glyphs, not LaTeX, so math arrives mangled — reconstruct with extra care.
 **Do:**
-1. Read the file. Strip navigation junk, references section, author affiliations, page artifacts.
+1. Read the file. Strip navigation junk, references section, author affiliations, page artifacts (if fetched via the ar5iv fallback, also strip `\hspace{0pt}` noise inside equations).
 2. Keep: abstract, core method sections, key equations (fix any mangled LaTeX), results tables that matter, limitations.
 3. Write cleaned version to `content/<name>/source.md` with a header block: title, authors, year, link/DOI, one-line summary.
-**Done when:** source.md reads as coherent standalone text with valid LaTeX.
+4. Write `content/<name>/equations.md` — the EQUATION REGISTRY: every equation the video could plausibly need, numbered (E1, E2, …), in verified LaTeX (single backslashes — it's markdown, not YAML), each checked against the paper (ar5iv view). Downstream steps COPY equations from this registry — never re-derive LaTeX from memory.
+**Done when:** source.md reads as coherent standalone text with valid LaTeX AND equations.md lists every key equation, verified against the paper.
 
 ## TASK plan — source → story plan (question ladder, GO/NO-GO gate)
 **Input:** `content/<name>/source.md`
@@ -30,13 +35,14 @@ first, or prefix with `conda run -n tmot` (see CLAUDE.md Environment).
 ## TASK annotate — blog → scene-annotated md
 **Input:** `content/<name>/blog.md`
 **Do:** Apply PROMPTS.md **Step 2** exactly. Write `content/<name>/<name>.md` — same prose, with ```scene YAML blocks replacing/augmenting [VISUAL] markers. Both narration languages, 4–7 `reel: true` scenes, durations summing to 480–900s (YouTube) with reel subset 45–90s.
-**Done when:** `python pipeline/blog_to_scenes.py content/<name>/<name>.md` exits OK.
+**Done when:** `python pipeline/blog_to_scenes.py content/<name>/<name>.md` exits OK **and** `python pipeline/check_tex.py content/<name>/<name>.md` reports all strings compile (every tex copied from `equations.md`, per PROMPTS.md step 2 rules).
 
 ## TASK build — parse + generate + preview render
 **Input:** `content/<name>/<name>.md`
 **Do:**
 ```
 python pipeline/blog_to_scenes.py content/<name>/<name>.md
+python pipeline/check_tex.py build/<name>/scenes.json
 python pipeline/generate_scripts.py build/<name>/scenes.json
 python pipeline/render.py build/<name> --preview
 ```

@@ -339,6 +339,15 @@ Narration and screen must move together — in both `narration_en` and
 - `equation_annotated` exists so every part of a formula can be pointed at —
   use `callout_idx`/`callout_text` to tie the scariest term back to its
   picture.
+- `split_relate` is the correspondence archetype: two panels (matrix / list /
+  vectors / graph / tex) with animated arrows drawing "this part here IS that
+  part there" — a matrix and its token list, vectors and the columns they
+  became, an equation and its graph. It is the Continuity Law made explicit
+  (the arrow IS the transformation the story claims), so reach for it whenever
+  two representations of one object must be RELATED on screen rather than shown
+  as two separate facts. Each `links` entry is a beat — keep them few (2–4),
+  let each pulse before the next, or the relation reads as clutter not
+  argument.
 - Reel scenes (`reel: true`) need the full arc in miniature: the 4–7 marked
   scenes must contain their own question, turn, and payoff, with carry
   objects intact when scenes between them are dropped from the IG cut. Check
@@ -375,6 +384,11 @@ Run this before `blog_to_scenes.py` (step 3). Any "no" means rewrite:
 16. Story plan exists (`plan.md`), was approved BEFORE writing, and every
     scene still maps to its "answers / raises" row? No scene answers a
     question that was never raised (no orphan answers, no fact-scenes)?
+17. Every `tex:`/`steps:`/`parts:` string copied from the project's
+    `equations.md` registry (or derived on screen from one that is)?
+    Normalized for animation — no `\label`/`\tag`/custom macros, no
+    `\left`/`\right` in morphing scenes, one canonical byte-identical form
+    per symbol? And `pipeline/check_tex.py` passes on the annotated .md?
 
 ## Worked micro-example (bad → good)
 

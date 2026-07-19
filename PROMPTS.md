@@ -70,6 +70,21 @@ Steps 1–2 are LLM-driven (use Claude/Cowork); steps 3–5 are the Python scrip
 > - Total YouTube runtime: sum of durations ≈ 480–900s.
 > - Prefer `transform` over two separate `equation_reveal`s when equation B
 >   derives from equation A — motion carries the meaning.
+> - **Equation fidelity:** every `tex:` / `steps:` / `parts:` string is
+>   COPIED from `content/<name>/equations.md` (the registry TASK ingest
+>   built and verified against the paper), or visibly derived on screen
+>   from one that is — never re-typed from memory. A plausible-looking
+>   equation with a wrong subscript is a factual error in the video.
+> - **Normalize LaTeX for animation, not print:** expand custom macros;
+>   strip `\label`, `\tag`, `\nonumber`; avoid `\left(`/`\right)` in
+>   morphing scenes (`transform`, `equation_steps`) — auto-sizing breaks
+>   TransformMatchingTex matching; pick ONE canonical form per symbol
+>   (always `d_k`, one Q/K/V styling) and reuse it byte-identically in
+>   every scene — same discipline as the color registry.
+> - After annotating, run
+>   `python pipeline/check_tex.py content/<name>/<name>.md` — every string
+>   must compile BEFORE the file is presented at the gate (main.py also
+>   re-checks automatically after step 3).
 
 ## Scene block schema (reference)
 
@@ -106,5 +121,18 @@ narration_hi: "..."
 #                    highlight_row
 #   softmax_build:   scores: [list], labels: [list], decimals
 #   multi_head:      n_heads: int
+#   table:           headers: [list], rows: [[..]], highlight: [r,c], align
+#   split_relate:    left / right panels + animated links between their parts.
+#                    Each panel: {kind: matrix|list|vectors|graph|tex, ...}
+#                      matrix  data:[[..]] decimals    (addr: row i, or [i,j])
+#                      list    items:[..] color        (addr: item i)
+#                      vectors data:[[x,y]..] labels    (addr: vector i)
+#                      graph   function,x_range,y_range,label   (addr: whole)
+#                      tex     tex:"..."                (addr: whole)
+#                    left_label, right_label (optional captions);
+#                    links: [{from:<addr>, to:<addr>, color?, label?}] — each
+#                    draws an arrow left->right and pulses both ends. Use for
+#                    relating two representations (matrix<->tokens,
+#                    vectors<->columns, equation<->graph).
 #   bullet_points:   points: [list of strings]
 ```

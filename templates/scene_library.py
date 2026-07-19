@@ -954,6 +954,186 @@ class TableReveal(TMOTScene):
         self.wait(float(self.spec.get("duration", 10)) / 4)
 
 
+class SplitRelate(TMOTScene):
+    """Two panels side by side (16:9) or stacked top/bottom (9:16 reels),
+    with animated connector arrows drawing correspondences between their
+    parts — the "this over here IS that over there" beat. Use it whenever
+    two representations of the same thing must be related on screen: a
+    matrix and its token list, vectors and the columns they became, an
+    equation and its graph, input and output.
+
+    Each panel is one of these kinds (spec.left / spec.right):
+      {kind: matrix, data: [[..]], decimals: 0}   addr: row i, or [i, j]
+      {kind: list,   items: [..], color: name}    addr: item index i
+      {kind: vectors,data: [[x,y]..], labels: [..]} addr: vector index i
+      {kind: graph,  function: "..", x_range, y_range, label}  addr: whole
+      {kind: tex,    tex: ".."}                    addr: whole
+
+    spec:
+      left, right   — panel specs (above)
+      left_label, right_label — optional captions above each panel
+      links         — list of {from: <addr>, to: <addr>, color?, label?};
+                      each draws an arrow left-part -> right-part and pulses
+                      both ends. `from`/`to` omitted or null = whole panel.
+      duration
+    Continuity: left arrives first, right second (foreshadowed), then links
+    draw one at a time — the relations ARE the explanation, not decoration."""
+    spec = {"title": "", "left": {"kind": "tex", "tex": "A"},
+            "right": {"kind": "tex", "tex": "B"}, "links": []}
+
+    _CMAP = {"blue": S.BLUE, "yellow": S.YELLOW, "green": S.GREEN,
+             "red": S.RED, "purple": S.PURPLE, "text": S.TEXT}
+
+    # ---- panel builders ------------------------------------
+    def _mk_matrix(self, data, decimals):
+        arr = np.array(data, dtype=float)
+        if decimals == 0:
+            M = IntegerMatrix(np.round(arr).astype(int).tolist(), h_buff=1.2)
+        else:
+            M = DecimalMatrix(
+                arr.tolist(), h_buff=1.5,
+                element_to_mobject_config={"num_decimal_places": decimals})
+        M.get_entries().set_color(S.TEXT)
+        return M
+
+    def _mk_vectors(self, pspec):
+        data = pspec["data"]
+        labels = pspec.get("labels") or []
+        lim = max([1.0] + [abs(v) for xy in data for v in xy]) * 1.2
+        ax = Axes(x_range=[-lim, lim, lim], y_range=[-lim, lim, lim],
+                  x_length=3.0, y_length=3.0, tips=False,
+                  axis_config={"stroke_color": S.GRID, "stroke_width": 1.5})
+        arrows = VGroup()
+        labs = VGroup()
+        for i, (x, y) in enumerate(data):
+            ar = Arrow(ax.c2p(0, 0), ax.c2p(x, y), buff=0,
+                       color=ACCENTS[i % len(ACCENTS)], stroke_width=4,
+                       max_tip_length_to_length_ratio=0.22,
+                       max_stroke_width_to_length_ratio=10)
+            arrows.add(ar)
+            if i < len(labels) and labels[i]:
+                t = MathTex(labels[i], color=ACCENTS[i % len(ACCENTS)])
+                d = np.array([float(x), float(y), 0.0])
+                nrm = np.linalg.norm(d)
+                t.scale(0.5).next_to(ar.get_end(), d / nrm if nrm > 1e-6 else UP)
+                labs.add(t)
+        return VGroup(ax, arrows, labs), arrows
+
+    def _mk_graph(self, pspec):
+        xr = pspec.get("x_range", [-4, 4])
+        yr = pspec.get("y_range", [-2, 2])
+        ax = Axes(x_range=[*xr, (xr[1] - xr[0]) / 4],
+                  y_range=[*yr, (yr[1] - yr[0]) / 4],
+                  x_length=3.6, y_length=2.6, tips=False,
+                  axis_config={"stroke_color": S.GRID, "stroke_width": 1.5})
+        fn = eval("lambda x: " + pspec["function"], {"np": np})  # noqa: S307
+        curve = ax.plot(fn, stroke_width=4)
+        curve.set_color_by_gradient(S.BLUE, S.PURPLE)
+        g = VGroup(ax, curve)
+        if pspec.get("label"):
+            lab = MathTex(pspec["label"], color=S.BLUE).scale(0.7)
+            lab.next_to(curve, UP, buff=0.15)
+            g.add(lab)
+        return g
+
+    def _build_panel(self, pspec, max_w, max_h):
+        kind = pspec.get("kind", "tex")
+        if kind == "matrix":
+            mob = self._mk_matrix(pspec["data"], int(pspec.get("decimals", 0)))
+            rows = mob.get_rows()
+
+            def resolve(addr):
+                if addr is None:
+                    return mob
+                if isinstance(addr, (list, tuple)):
+                    return rows[int(addr[0])][int(addr[1])]
+                return rows[int(addr)]
+        elif kind == "list":
+            c = self._CMAP.get(pspec.get("color"), S.TEXT)
+            size = 24 if self.is_reel else 28
+            items = VGroup(*[S.body(str(x), font_size=size, color=c)
+                             for x in pspec["items"]]).arrange(
+                DOWN, buff=0.32, aligned_edge=LEFT)
+            mob = items
+
+            def resolve(addr):
+                return mob if addr is None else items[int(addr)]
+        elif kind == "vectors":
+            mob, arrows = self._mk_vectors(pspec)
+
+            def resolve(addr):
+                return mob if addr is None else arrows[int(addr)]
+        elif kind == "graph":
+            mob = self._mk_graph(pspec)
+
+            def resolve(addr):
+                return mob
+        else:  # tex
+            mob = MathTex(pspec.get("tex", "?"), color=S.TEXT)
+
+            def resolve(addr):
+                return mob
+        # fit within the panel box (scale down; allow modest upscale)
+        s = min(max_w / mob.width, max_h / mob.height, 1.5)
+        if s != 1.0:
+            mob.scale(s)
+        return mob, resolve
+
+    def construct(self):
+        self.add_watermark()
+        if self.spec.get("title"):
+            self.play(FadeIn(self.title_bar(self.spec["title"])), run_time=0.6)
+        fw, fh = self.camera.frame_width, self.camera.frame_height
+
+        if self.is_reel:                       # stack top / bottom
+            max_w, max_h = 0.82 * fw, 0.30 * fh
+            lc, rc = UP * 0.26 * fh, DOWN * 0.20 * fh
+        else:                                  # side by side
+            max_w, max_h = 0.40 * fw, 0.60 * fh
+            lc, rc = LEFT * 0.25 * fw, RIGHT * 0.25 * fw
+
+        left, lres = self._build_panel(self.spec["left"], max_w, max_h)
+        right, rres = self._build_panel(self.spec["right"], max_w, max_h)
+        left.move_to(lc)
+        right.move_to(rc)
+
+        lpanel, rpanel = VGroup(left), VGroup(right)
+        if self.spec.get("left_label"):
+            t = S.body(self.spec["left_label"], font_size=24, color=S.MUTED)
+            t.next_to(left, UP, buff=0.3)
+            lpanel.add(t)
+        if self.spec.get("right_label"):
+            t = S.body(self.spec["right_label"], font_size=24, color=S.MUTED)
+            t.next_to(right, UP, buff=0.3)
+            rpanel.add(t)
+
+        whole = VGroup(lpanel, rpanel)
+        S.ig_safe_shift(whole, self.fmt)
+
+        self.play(FadeIn(lpanel, shift=OUT * 3), run_time=0.9)
+        self.play(FadeIn(rpanel, shift=OUT * 3), run_time=0.9)
+
+        for link in (self.spec.get("links") or []):
+            a = lres(link.get("from"))
+            b = rres(link.get("to"))
+            color = self._CMAP.get(link.get("color"), S.YELLOW)
+            if self.is_reel:
+                start, end = a.get_bottom(), b.get_top()
+            else:
+                start, end = a.get_right(), b.get_left()
+            arrow = Arrow(start, end, buff=0.12, color=color, stroke_width=3,
+                          max_tip_length_to_length_ratio=0.12,
+                          max_stroke_width_to_length_ratio=6)
+            self.play(Create(arrow), run_time=0.5)
+            self.play(Indicate(a, color=color),
+                      Indicate(b, color=color), run_time=0.5)
+            if link.get("label"):
+                lab = S.body(link["label"], font_size=20, color=color)
+                lab.next_to(arrow.get_center(), UP, buff=0.1)
+                self.play(FadeIn(lab), run_time=0.3)
+        self.wait(float(self.spec.get("duration", 12)) / 4)
+
+
 SCENE_TYPES = {
     "concept_title": ConceptTitle,
     "equation_reveal": EquationReveal,
@@ -969,5 +1149,6 @@ SCENE_TYPES = {
     "softmax_build": SoftmaxBuild,
     "multi_head": MultiHead,
     "table": TableReveal,
+    "split_relate": SplitRelate,
     "bullet_points": BulletPoints,
 }

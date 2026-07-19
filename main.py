@@ -13,6 +13,8 @@ Claude Code ("run TASK full for <name>", see tasks.md). Once the annotated
     python main.py content/example/attention.md --only=softmax_row,hook_title
         # rework specific scene ids only; all other scenes are reused from
         # build/<name>/renders/ and the final videos are re-stitched
+    python main.py content/example/attention.md --skip-tex
+        # skip the step-3.5 LaTeX pre-compile check (pipeline/check_tex.py)
 """
 import subprocess
 import sys
@@ -41,6 +43,8 @@ def main():
     build = ROOT / "build" / md.stem
 
     run([py, "pipeline/blog_to_scenes.py", str(md)])
+    if "--skip-tex" not in flags:
+        run([py, "pipeline/check_tex.py", str(build / "scenes.json")])
     run([py, "pipeline/generate_scripts.py", str(build / "scenes.json")])
 
     if "--no-render" in flags:
